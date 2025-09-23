@@ -19,7 +19,7 @@ on:
       - prod
 
 env:
-  AWS_REGION: ${{ env.AWS_REGION }}
+  AWS_REGION: eu-north-1
 
 jobs:
   build-and-push:
