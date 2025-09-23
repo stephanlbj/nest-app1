@@ -35,7 +35,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: eu-north-1
           role-session-name: github-actions-nest
 
       # 3️⃣ Determine environment
