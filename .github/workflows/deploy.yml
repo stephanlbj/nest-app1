@@ -1,0 +1,83 @@
+name: Deploy NestJS Docker to ECR
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - preprod
+          - prod
+  push:
+    branches:
+      - staging
+      - preprod
+      - prod
+
+env:
+  AWS_REGION: ${{ env.AWS_REGION }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2️⃣ Configure AWS via OIDC
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-nest
+
+      # 3️⃣ Determine environment
+      - name: Set environment
+        run: |
+          if [ -n "${{ github.event.inputs.environment }}" ]; then
+            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          else
+            # Use branch name if workflow triggered by push
+            echo "ENVIRONMENT=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          fi
+
+      # 4️⃣ Get ECR URI from SSM
+      - name: Get ECR URI from SSM
+        id: get_ecr_uri
+        run: |
+          ECR_URI=$(aws ssm get-parameter \
+            --name "/ecr/${ENVIRONMENT}/uri" \
+            --query "Parameter.Value" \
+            --output text)
+          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+          echo "ECR_URI=$ECR_URI"
+
+      # 5️⃣ Login to ECR
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin $ECR_URI
+
+      # 6️⃣ Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t $ECR_URI:${GITHUB_SHA} .
+
+      # 7️⃣ Push Docker image to ECR
+      - name: Push Docker image
+        run: |
+          docker push $ECR_URI:${GITHUB_SHA}
+
+      # 8️⃣ Optional: Tag latest
+      - name: Tag latest
+        if: github.event.inputs.environment == 'staging'
+        run: |
+          docker tag $ECR_URI:${GITHUB_SHA} $ECR_URI:latest
+          docker push $ECR_URI:latest
