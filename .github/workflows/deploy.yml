@@ -34,7 +34,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Debug OIDC token (temporaire, peut être retiré après test)
+      # 2️⃣ Debug OIDC token (temporaire)
       - name: Debug OIDC token
         run: |
           echo "ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL"
@@ -58,6 +58,7 @@ jobs:
             echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
           else
             echo "ENVIRONMENT=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          fi
 
       # 5️⃣ Get ECR URI from SSM
       - name: Get ECR URI from SSM
