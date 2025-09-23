@@ -21,6 +21,10 @@ on:
 env:
   AWS_REGION: eu-north-1
 
+permissions:
+  id-token: write # nécessaire pour OIDC
+  contents: read # pour checkout
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -30,25 +34,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Configure AWS via OIDC
+      # 2️⃣ Debug OIDC token (temporaire, peut être retiré après test)
+      - name: Debug OIDC token
+        run: |
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL"
+          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          curl -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" || echo "Token fetch failed"
+
+      # 3️⃣ Configure AWS via OIDC
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::585665041354:role/GitHubActionsTerraformRole
           aws-region: eu-north-1
           role-session-name: github-actions-nest
+          # audience supprimé, géré automatiquement
 
-      # 3️⃣ Determine environment
+      # 4️⃣ Determine environment
       - name: Set environment
         run: |
           if [ -n "${{ github.event.inputs.environment }}" ]; then
             echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
           else
-            # Use branch name if workflow triggered by push
             echo "ENVIRONMENT=${GITHUB_REF##*/}" >> $GITHUB_ENV
-          fi
 
-      # 4️⃣ Get ECR URI from SSM
+      # 5️⃣ Get ECR URI from SSM
       - name: Get ECR URI from SSM
         id: get_ecr_uri
         run: |
@@ -59,23 +70,23 @@ jobs:
           echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
           echo "ECR_URI=$ECR_URI"
 
-      # 5️⃣ Login to ECR
+      # 6️⃣ Login to ECR
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
             docker login --username AWS --password-stdin $ECR_URI
 
-      # 6️⃣ Build Docker image
+      # 7️⃣ Build Docker image
       - name: Build Docker image
         run: |
           docker build -t $ECR_URI:${GITHUB_SHA} .
 
-      # 7️⃣ Push Docker image to ECR
+      # 8️⃣ Push Docker image to ECR
       - name: Push Docker image
         run: |
           docker push $ECR_URI:${GITHUB_SHA}
 
-      # 8️⃣ Optional: Tag latest
+      # 9️⃣ Optional: Tag latest
       - name: Tag latest
         if: github.event.inputs.environment == 'staging'
         run: |
