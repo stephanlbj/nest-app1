@@ -76,9 +76,9 @@ jobs:
           # Tag stable per environment
           docker tag $ECR_URI:${IMAGE_TAG} $ECR_URI:${ENVIRONMENT}
 
-          # Tag latest only for staging & preprod
+          # Tag latest for staging & preprod
           if [ "${ENVIRONMENT}" = "staging" ] || [ "${ENVIRONMENT}" = "preprod" ]; then
-            docker tag $ECR_URI:${IMAGE_TAG} $ECR_URI:${ENVIRONMENT}-latest
+            docker tag $ECR_URI:${IMAGE_TAG} $ECR_URI:latest
           fi
 
       # 7️⃣ Push Docker image(s)
@@ -89,7 +89,7 @@ jobs:
           docker push $ECR_URI:${ENVIRONMENT}
 
           if [ "${ENVIRONMENT}" = "staging" ] || [ "${ENVIRONMENT}" = "preprod" ]; then
-            docker push $ECR_URI:${ENVIRONMENT}-latest
+            docker push $ECR_URI:latest
           fi
 
       # 8️⃣ Update ECS service with correct tag
@@ -102,7 +102,7 @@ jobs:
           if [ "${ENVIRONMENT}" = "prod" ]; then
             DEPLOY_TAG="${ENVIRONMENT}"
           else
-            DEPLOY_TAG="${ENVIRONMENT}-latest"
+            DEPLOY_TAG="latest"
           fi
 
           echo "🚀 Updating ECS service $SERVICE in cluster $CLUSTER with image tag $DEPLOY_TAG"
