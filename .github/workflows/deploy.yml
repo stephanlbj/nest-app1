@@ -92,23 +92,15 @@ jobs:
             docker push $ECR_URI:latest
           fi
 
-      # 8️⃣ Update ECS service with correct tag
+      # 8️⃣ Update ECS service (force new deployment)
       - name: Update ECS service
         run: |
           CLUSTER="nest-api-${ENVIRONMENT}-cluster"
           SERVICE="nest-api-${ENVIRONMENT}-service"
 
-          # Select tag to deploy
-          if [ "${ENVIRONMENT}" = "prod" ]; then
-            DEPLOY_TAG="${ENVIRONMENT}"
-          else
-            DEPLOY_TAG="latest"
-          fi
-
-          echo "🚀 Updating ECS service $SERVICE in cluster $CLUSTER with image tag $DEPLOY_TAG"
+          echo "🚀 Triggering new deployment for $SERVICE in cluster $CLUSTER"
           aws ecs update-service \
             --cluster "$CLUSTER" \
             --service "$SERVICE" \
             --force-new-deployment \
-            --region ${{ env.AWS_REGION }} \
-            --image "$ECR_URI:$DEPLOY_TAG"
+            --region ${{ env.AWS_REGION }}
