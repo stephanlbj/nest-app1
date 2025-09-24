@@ -93,3 +93,14 @@ jobs:
         run: |
           docker tag $ECR_URI:${GITHUB_SHA} $ECR_URI:latest
           docker push $ECR_URI:latest
+
+      - name: Update ECS service
+        run: |
+          CLUSTER="nest-api-${ENV}-cluster"
+          SERVICE="nest-api-${ENV}-service"
+          echo "🚀 Updating ECS service $SERVICE in cluster $CLUSTER with new image"
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
