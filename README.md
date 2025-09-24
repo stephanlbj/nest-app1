@@ -4,7 +4,7 @@
 
 Ce projet contient l’application NestJS et le pipeline GitHub Actions pour construire, containeriser et déployer sur ECS automatiquement.
 
-> ⚠️ **Important** : La branche par défaut pour tester est `staging`. Ne pas travailler sur `main` ou `preprod` directement.
+> ⚠️ **Important** : La branche par défaut pour tester est `staging`.
 
 ## 🚀 Fonctionnalités
 
