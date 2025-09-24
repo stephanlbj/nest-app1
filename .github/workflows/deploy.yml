@@ -22,8 +22,8 @@ env:
   AWS_REGION: eu-north-1
 
 permissions:
-  id-token: write # nécessaire pour OIDC
-  contents: read # pour checkout
+  id-token: write
+  contents: read
 
 jobs:
   build-and-push:
@@ -34,24 +34,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Debug OIDC token (temporaire)
-      - name: Debug OIDC token
-        run: |
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL"
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-          curl -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL" || echo "Token fetch failed"
-
-      # 3️⃣ Configure AWS via OIDC
+      # 2️⃣ Configure AWS via OIDC
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{secrets.AWS_ROLE_TO_ASSUME_ARN}}
-          aws-region: eu-north-1
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-nest
-          # audience supprimé, géré automatiquement
 
-      # 4️⃣ Determine environment
+      # 3️⃣ Determine environment
       - name: Set environment
         run: |
           if [ -n "${{ github.event.inputs.environment }}" ]; then
@@ -59,46 +50,54 @@ jobs:
           else
             echo "ENVIRONMENT=${GITHUB_REF##*/}" >> $GITHUB_ENV
           fi
+          echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
 
-      # 5️⃣ Get ECR URI from SSM
+      # 4️⃣ Get ECR URI from SSM
       - name: Get ECR URI from SSM
-        id: get_ecr_uri
         run: |
           ECR_URI=$(aws ssm get-parameter \
             --name "/ecr/${ENVIRONMENT}/uri" \
             --query "Parameter.Value" \
             --output text)
           echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
-          echo "ECR_URI=$ECR_URI"
 
-      # 6️⃣ Login to ECR
+      # 5️⃣ Login to ECR
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
             docker login --username AWS --password-stdin $ECR_URI
 
-      # 7️⃣ Build Docker image
-      - name: Build Docker image
+      # 6️⃣ Build & Tag Docker image
+      - name: Build & Tag Docker image
         run: |
-          docker build -t $ECR_URI:${GITHUB_SHA} .
+          echo "🐳 Building Docker image..."
+          docker build -t $ECR_URI:${IMAGE_TAG} .
 
-      # 8️⃣ Push Docker image to ECR
-      - name: Push Docker image
+          # Tag stable per environment
+          docker tag $ECR_URI:${IMAGE_TAG} $ECR_URI:${ENVIRONMENT}
+
+          # Tag latest only for staging & preprod
+          if [ "${ENVIRONMENT}" = "staging" ] || [ "${ENVIRONMENT}" = "preprod" ]; then
+            docker tag $ECR_URI:${IMAGE_TAG} $ECR_URI:${ENVIRONMENT}-latest
+          fi
+
+      # 7️⃣ Push Docker image(s)
+      - name: Push Docker image(s)
         run: |
-          docker push $ECR_URI:${GITHUB_SHA}
+          echo "📤 Pushing Docker images..."
+          docker push $ECR_URI:${IMAGE_TAG}
+          docker push $ECR_URI:${ENVIRONMENT}
 
-      # 9️⃣ Optional: Tag latest
-      - name: Tag latest
-        if: github.event.inputs.environment == 'staging'
-        run: |
-          docker tag $ECR_URI:${GITHUB_SHA} $ECR_URI:latest
-          docker push $ECR_URI:latest
+          if [ "${ENVIRONMENT}" = "staging" ] || [ "${ENVIRONMENT}" = "preprod" ]; then
+            docker push $ECR_URI:${ENVIRONMENT}-latest
+          fi
 
+      # 8️⃣ Update ECS service
       - name: Update ECS service
         run: |
           CLUSTER="nest-api-${ENVIRONMENT}-cluster"
           SERVICE="nest-api-${ENVIRONMENT}-service"
-          echo "🚀 Updating ECS service $SERVICE in cluster $CLUSTER with new image"
+          echo "🚀 Updating ECS service $SERVICE in cluster $CLUSTER"
           aws ecs update-service \
             --cluster "$CLUSTER" \
             --service "$SERVICE" \
