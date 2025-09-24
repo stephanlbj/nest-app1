@@ -1,0 +1,99 @@
+##  README pour le projet NestJS + CI/CD
+
+# Application NestJS avec Docker et CI/CD sur AWS
+
+Ce projet contient l’application NestJS et le pipeline GitHub Actions pour construire, containeriser et déployer sur ECS automatiquement.
+
+
+
+> ⚠️ **Important** : La branche par défaut pour tester est `staging`. Ne pas travailler sur `main` ou `preprod` directement.
+
+
+
+## 🚀 Fonctionnalités
+
+- Application NestJS moderne
+
+- Dockerisation complète
+
+- Pipeline CI/CD avec GitHub Actions
+
+- Déploiement automatique sur ECS via ECR
+
+- Support pour trois environnements : `staging`, `preprod` et `prod`
+
+
+
+## 🔧 Prérequis
+
+- Node.js >= 18
+
+- Docker
+
+- Accès au repository GitHub avec OIDC pour AWS
+
+
+## ⚡ Utilisation
+
+1. Cloner le projet et passer sur **staging** :
+
+```bash
+
+git clone <URL_DU_REPO_NESTJS>
+
+cd nestjs-app
+
+git checkout staging
+
+
+
+2- Installer les dépendances :
+
+npm install
+
+
+3 - Construire l’application :
+
+
+
+npm run build
+
+Pousser l’image et déployer via GitHub Actions :
+
+
+Trigger automatique sur push ou workflow_dispatch
+Les images Docker sont taguées avec latest pour staging et preprod, et avec SHA pour prod
+Les services ECS sont mis à jour automatiquement
+
+
+
+
+
+📂 Structure
+
+nestjs-app/
+
+├─ src/
+
+├─ docker/
+
+├─ .github/workflows/
+
+│  └─ deploy.yml
+
+├─ package.json
+
+└─ tsconfig.json
+
+
+
+🔐 Sécurité
+
+Les secrets GitHub ne sont pas stockés
+OIDC + SSM permettent de récupérer dynamiquement les credentials AWS
+Rôles IAM minimalistes et sécurisés
+
+
+
+
+
