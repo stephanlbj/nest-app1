@@ -96,8 +96,8 @@ jobs:
 
       - name: Update ECS service
         run: |
-          CLUSTER="nest-api-${ENV}-cluster"
-          SERVICE="nest-api-${ENV}-service"
+          CLUSTER="nest-api-${ENVIRONMENT}-cluster"
+          SERVICE="nest-api-${ENVIRONMENT}-service"
           echo "🚀 Updating ECS service $SERVICE in cluster $CLUSTER with new image"
           aws ecs update-service \
             --cluster "$CLUSTER" \
